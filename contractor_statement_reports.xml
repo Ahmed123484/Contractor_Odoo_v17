@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <record id="action_report_contractor_statement" model="ir.actions.report">
+            <field name="name">مستخلص المقاول</field>
+            <field name="model">contractor.statement</field>
+            <field name="report_type">qweb-pdf</field>
+            <field name="report_name">constructor.report_contractor_statement_main</field>
+            <field name="report_file">constructor.report_contractor_statement_main</field>
+            <field name="binding_model_id" ref="model_contractor_statement"/>
+            <field name="binding_type">report</field>
+        </record>
+    </data>
+</odoo>

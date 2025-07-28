@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="report_contractor_statement">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="o">
+                <t t-call="web.external_layout">
+                    <div class="page">
+                        <h2 class="text-center">مستخلص المقاول</h2>
+                        <div class="row mt32 mb32">
+                            <div class="col-6">
+                                <strong>رقم المستخلص:</strong> <span t-field="o.name"/><br/>
+                                <strong>المشروع:</strong> <span t-field="o.project_id.name"/><br/>
+                                <strong>نوع العمل:</strong> <span t-field="o.work_type_id.name"/><br/>
+                                <strong>المقاول:</strong> <span t-field="o.contractor_id.name"/><br/>
+                                <strong>نوع المقاول:</strong> <span t-field="o.contractor_type"/>
+                            </div>
+                            <div class="col-6">
+                                <strong>تاريخ المستخلص:</strong> <span t-field="o.statement_date"/><br/>
+                                <strong>فترة العمل من:</strong> <span t-field="o.work_period_from"/><br/>
+                                <strong>فترة العمل إلى:</strong> <span t-field="o.work_period_to"/><br/>
+                                <strong>الحالة:</strong> <span t-field="o.state"/>
+                            </div>
+                        </div>
+                        
+                        <h4>بنود المستخلص</h4>
+                        <table class="table table-sm o_main_table">
+                            <thead>
+                                <tr>
+                                    <th>المنتج</th>
+                                    <th>الوصف</th>
+                                    <th>الوحدة</th>
+                                    <th>الكمية التعاقدية</th>
+                                    <th>الكمية السابقة</th>
+                                    <th>الكمية الحالية</th>
+                                    <th>إجمالي الكمية</th>
+                                    <th>نسبة الإنجاز %</th>
+                                    <th>سعر الوحدة</th>
+                                    <th>القيمة الحالية</th>
+                                    <th>إجمالي القيمة</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr t-foreach="o.statement_line_ids" t-as="line">
+                                    <td><span t-field="line.product_id.name"/></td>
+                                    <td><span t-field="line.description"/></td>
+                                    <td><span t-field="line.unit"/></td>
+                                    <td><span t-field="line.contract_qty"/></td>
+                                    <td><span t-field="line.prev_qty"/></td>
+                                    <td><span t-field="line.current_qty"/></td>
+                                    <td><span t-field="line.total_qty"/></td>
+                                    <td><span t-field="line.progress_percent"/>%</td>
+                                    <td><span t-field="line.unit_price"/></td>
+                                    <td><span t-field="line.current_value"/></td>
+                                    <td><span t-field="line.total_value"/></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        
+                        <div class="row">
+                            <div class="col-8"></div>
+                            <div class="col-4">
+                                <table class="table table-sm">
+                                    <tr>
+                                        <td><strong>إجمالي القيمة:</strong></td>
+                                        <td class="text-right"><span t-field="o.gross_value"/></td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>الضرائب:</strong></td>
+                                        <td class="text-right"><span t-field="o.tax_amount"/></td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>خصم الدفعة المقدمة:</strong></td>
+                                        <td class="text-right"><span t-field="o.advance_payment_deduction"/></td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>الاستبقاء (%):</strong></td>
+                                        <td class="text-right"><span t-field="o.retention_percentage"/>%</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>قيمة الاستبقاء:</strong></td>
+                                        <td class="text-right"><span t-field="o.retention"/></td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>خصومات أخرى:</strong></td>
+                                        <td class="text-right"><span t-field="o.other_deductions"/></td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>إجمالي الخصومات:</strong></td>
+                                        <td class="text-right"><span t-field="o.total_deductions"/></td>
+                                    </tr>
+                                    <tr class="border-top">
+                                        <td><strong>صافي المستحق:</strong></td>
+                                        <td class="text-right"><strong><span t-field="o.net_payable"/></strong></td>
+                                    </tr>
+                                </table>
+                            </div>
+                        </div>
+                        
+                        <div class="row mt32 mb32">
+                            <div class="col-4 text-center">
+                                <p><strong>توقيع المقاول</strong></p>
+                                <p><span t-field="o.contractor_signature"/></p>
+                            </div>
+                            <div class="col-4 text-center">
+                                <p><strong>توقيع الاستشاري</strong></p>
+                                <p><span t-field="o.consultant_signature"/></p>
+                            </div>
+                            <div class="col-4 text-center">
+                                <p><strong>توقيع مالك المشروع</strong></p>
+                                <p><span t-field="o.project_owner_signature"/></p>
+                            </div>
+                        </div>
+                    </div>
+                </t>
+            </t>
+        </t>
+    </template>
+    
+    <template id="report_contractor_statement_document">
+        <t t-call="web.external_layout">
+            <t t-set="o" t-value="o.with_context(lang=lang)" />
+            <t t-call="constructor.report_contractor_statement" />
+        </t>
+    </template>
+    
+    <template id="report_contractor_statement_main">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="o">
+                <t t-call="constructor.report_contractor_statement_document" />
+            </t>
+        </t>
+    </template>
+</odoo>

@@ -1,0 +1,729 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <!-- Sequence for contractor statements -->
+        <record id="contractor_statement_sequence" model="ir.sequence">
+            <field name="name">Contractor Statement Sequence</field>
+            <field name="code">contractor.statement</field>
+            <field name="prefix">%(year)s</field>
+            <field name="suffix"></field>
+            <field name="number_next">1</field>
+            <field name="number_increment">1</field>
+            <field name="padding">3</field>
+            <field name="company_id" eval="False"/>
+        </record>
+
+        <!-- Tree View with Filters and Grouping -->
+        <record id="contractor_statement_tree_view" model="ir.ui.view">
+            <field name="name">contractor.statement.tree</field>
+            <field name="model">contractor.statement</field>
+            <field name="arch" type="xml">
+                <tree string="Contractor Statements" decoration-info="state=='draft'" decoration-success="state=='approved'" decoration-warning="state=='confirmed'" decoration-muted="state=='paid'">
+                    <field name="name"/>
+                    <field name="project_id"/>
+                    <field name="work_type_id"/>
+                    <field name="contractor_id"/>
+                    <field name="contractor_type"/>
+                    <field name="statement_date"/>
+                    <field name="work_period_from"/>
+                    <field name="work_period_to"/>
+                    <field name="gross_value" sum="Total Gross Value"/>
+                    <field name="total_deductions" sum="Total Deductions"/>
+                    <field name="net_payable" sum="Total Net Payable"/>
+                    <field name="state"/>
+                </tree>
+            </field>
+        </record>
+
+        <!-- Search View with Filters and Grouping -->
+        <record id="contractor_statement_search_view" model="ir.ui.view">
+            <field name="name">contractor.statement.search</field>
+            <field name="model">contractor.statement</field>
+            <field name="arch" type="xml">
+                <search string="Search Contractor Statements">
+                    <field name="name" string="Statement Number"/>
+                    <field name="project_id" string="Project"/>
+                    <field name="work_type_id" string="Work Type"/>
+                    <field name="contractor_id" string="Contractor"/>
+                    <field name="statement_date" string="Statement Date"/>
+                    
+                    <!-- Filters -->
+                    <filter string="Draft" name="draft" domain="[('state', '=', 'draft')]"/>
+                    <filter string="Confirmed" name="confirmed" domain="[('state', '=', 'confirmed')]"/>
+                    <filter string="Approved" name="approved" domain="[('state', '=', 'approved')]"/>
+                    <filter string="Paid" name="paid" domain="[('state', '=', 'paid')]"/>
+                    
+                    <separator/>
+                    
+                    <filter string="Main Contractor" name="main_contractor" domain="[('contractor_type', '=', 'main')]"/>
+                    <filter string="Sub Contractor" name="sub_contractor" domain="[('contractor_type', '=', 'sub')]"/>
+                    
+                    <separator/>
+                    
+                    <filter string="This Month" name="this_month" domain="[('statement_date', '&gt;=', (context_today() - datetime.timedelta(days=30)).strftime('%Y-%m-01')), ('statement_date', '&lt;', (context_today() + datetime.timedelta(days=32)).strftime('%Y-%m-01'))]"/>
+                    <filter string="Last Month" name="last_month" domain="[('statement_date', '&gt;=', (context_today() - datetime.timedelta(days=60)).strftime('%Y-%m-01')), ('statement_date', '&lt;', (context_today() - datetime.timedelta(days=30)).strftime('%Y-%m-01'))]"/>
+                    <filter string="This Year" name="this_year" domain="[('statement_date', '&gt;=', context_today().strftime('%Y-01-01')), ('statement_date', '&lt;=', context_today().strftime('%Y-12-31'))]"/>
+                    
+                    <separator/>
+                    
+                    <!-- Group By -->
+                    <group expand="0" string="Group By">
+                        <filter string="Project" name="group_by_project" context="{'group_by': 'project_id'}"/>
+                        <filter string="Work Type" name="group_by_work_type" context="{'group_by': 'work_type_id'}"/>
+                        <filter string="Contractor" name="group_by_contractor" context="{'group_by': 'contractor_id'}"/>
+                        <filter string="Contractor Type" name="group_by_contractor_type" context="{'group_by': 'contractor_type'}"/>
+                        <filter string="Status" name="group_by_state" context="{'group_by': 'state'}"/>
+                        <filter string="Statement Date" name="group_by_date" context="{'group_by': 'statement_date'}"/>
+                        <filter string="Month" name="group_by_month" context="{'group_by': 'statement_date:month'}"/>
+                        <filter string="Year" name="group_by_year" context="{'group_by': 'statement_date:year'}"/>
+                    </group>
+                </search>
+            </field>
+        </record>
+
+        <!-- Form View -->
+        <record id="contractor_statement_form_view" model="ir.ui.view">
+            <field name="name">contractor.statement.form</field>
+            <field name="model">contractor.statement</field>
+            <field name="arch" type="xml">
+                <form string="Contractor Statement">
+                    <header>
+                        <button name="action_confirm" string="Confirm" type="object" class="btn-primary" invisible="state != 'draft'"/>
+                        <button name="action_approve" string="Approve" type="object" class="btn-success" invisible="state != 'confirmed'"/>
+                        <button name="action_reset_to_draft" string="Reset to Draft" type="object" invisible="state not in ('confirmed', 'approved') or state == 'paid'"/>
+                        <button name="action_mark_as_paid" string="Mark as Paid" type="object" class="btn-info" invisible="state != 'approved'"/>
+                        <field name="state" widget="statusbar" statusbar_visible="draft,confirmed,approved,paid"/>
+                    </header>
+                    <sheet>
+                        <div class="o_title">
+                            <h1>
+                                <field name="name" readonly="1"/>
+                            </h1>
+                        </div>
+                        <group>
+                            <group>
+                                <field name="project_id" readonly="state != 'draft'"/>
+                                <field name="work_type_id" readonly="state != 'draft'"/>
+                                <field name="contractor_id" readonly="state != 'draft'"/>
+                                <field name="contractor_type" readonly="state != 'draft'"/>
+                                <field name="statement_date" readonly="state != 'draft'"/>
+                            </group>
+                            <group>
+                                <field name="work_period_from" readonly="state != 'draft'"/>
+                                <field name="work_period_to" readonly="state != 'draft'"/>
+                                <field name="journal_id" readonly="state != 'draft'"/>
+                                <field name="move_id" readonly="1" invisible="move_id == False"/>
+                                <field name="payment_id" readonly="1" invisible="payment_id == False"/>
+                            </group>
+                        </group>
+                        
+                        <notebook>
+                            <page string="Statement Lines">
+                                <field name="statement_line_ids" readonly="state != 'draft'">
+                                    <tree string="Statement Lines" editable="bottom">
+                                        <field name="sequence" widget="handle"/>
+                                        <field name="product_id" domain="[('work_type_id', '=', parent.work_type_id)]"/>
+                                        <field name="description" readonly="1"/>
+                                        <field name="unit" readonly="1"/>
+                                        <field name="contract_qty" readonly="1"/>
+                                        <field name="prev_qty" readonly="1"/>
+                                        <field name="current_qty"/>
+                                        <field name="total_qty" readonly="1"/>
+                                        <field name="progress_percent" readonly="1"/>
+                                        <field name="unit_price"/>
+                                        <field name="current_value" readonly="1"/>
+                                        <field name="total_value" readonly="1"/>
+                                    </tree>
+                                </field>
+                                
+                                <!-- Summary Section moved to the right -->
+                                <div class="row">
+                                    <div class="col-md-8"></div>
+                                    <div class="col-md-4">
+                                        <table class="table table-sm o_list_table">
+                                            <tr>
+                                                <td class="text-right"><strong>Total Statement Value:</strong></td>
+                                                <td class="text-right">
+                                                    <field name="gross_value" readonly="1" nolabel="1" widget="monetary"/>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td class="text-right"><strong>Total Deductions:</strong></td>
+                                                <td class="text-right">
+                                                    <field name="total_deductions" readonly="1" nolabel="1" widget="monetary"/>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td class="text-right"><strong>Total Taxes:</strong></td>
+                                                <td class="text-right">
+                                                    <field name="tax_amount" readonly="1" nolabel="1" widget="monetary"/>
+                                                </td>
+                                            </tr>
+                                            <tr class="border-top">
+                                                <td class="text-right"><strong>Net Payable:</strong></td>
+                                                <td class="text-right">
+                                                    <strong><field name="net_payable" readonly="1" nolabel="1" widget="monetary"/></strong>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </div>
+                                </div>
+                            </page>
+                            
+                            <page string="Financial Summary">
+                                <group>
+                                    <group>
+                                        <label for="gross_value"/>
+                                        <field name="gross_value" readonly="1" nolabel="1"/>
+                                        <label for="advance_payment_deduction"/>
+                                        <field name="advance_payment_deduction" readonly="state != 'draft'" nolabel="1"/>
+                                        <label for="retention_percentage"/>
+                                        <field name="retention_percentage" readonly="state != 'draft'" nolabel="1"/>
+                                        <label for="retention"/>
+                                        <field name="retention" readonly="state != 'draft'" nolabel="1"/>
+                                    </group>
+                                    <group>
+                                        <label for="tax_ids"/>
+                                        <field name="tax_ids" widget="many2many_tags" readonly="state != 'draft'" nolabel="1"/>
+                                        <label for="tax_amount"/>
+                                        <field name="tax_amount" readonly="1" nolabel="1"/>
+                                        <label for="other_deductions"/>
+                                        <field name="other_deductions" readonly="state != 'draft'" nolabel="1"/>
+                                        <label for="total_deductions"/>
+                                        <field name="total_deductions" readonly="1" nolabel="1"/>
+                                        <label for="net_payable"/>
+                                        <field name="net_payable" readonly="1" class="o_subtotal_footer_separator" nolabel="1"/>
+                                    </group>
+                                </group>
+                            </page>
+                            
+                            <page string="Signatures">
+                                <group>
+                                    <field name="contractor_signature" readonly="state != 'draft'"/>
+                                    <field name="consultant_signature" readonly="state != 'draft'"/>
+                                    <field name="project_owner_signature" readonly="state != 'draft'"/>
+                                </group>
+                            </page>
+                        </notebook>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+        <!-- Contract Quantity Views -->
+        <record id="contract_quantity_tree_view" model="ir.ui.view">
+            <field name="name">contract.quantity.tree</field>
+            <field name="model">contract.quantity</field>
+            <field name="arch" type="xml">
+                <tree string="Contract Quantities">
+                    <field name="project_id"/>
+                    <field name="work_type_id"/>
+                    <field name="contractor_id"/>
+                    <field name="product_id"/>
+                    <field name="quantity"/>
+                </tree>
+            </field>
+        </record>
+
+        <record id="contract_quantity_form_view" model="ir.ui.view">
+            <field name="name">contract.quantity.form</field>
+            <field name="model">contract.quantity</field>
+            <field name="arch" type="xml">
+                <form string="Contract Quantity">
+                    <sheet>
+                        <group>
+                            <group>
+                                <field name="project_id"/>
+                                <field name="work_type_id"/>
+                                <field name="contractor_id"/>
+                            </group>
+                            <group>
+                                <field name="product_id"/>
+                                <field name="quantity"/>
+                            </group>
+                        </group>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+        <!-- Contractor Quantity Tracker Views -->
+        <record id="contractor_quantity_tracker_tree_view" model="ir.ui.view">
+            <field name="name">contractor.quantity.tracker.tree</field>
+            <field name="model">contractor.quantity.tracker</field>
+            <field name="arch" type="xml">
+                <tree string="Quantity Tracker">
+                    <field name="project_id"/>
+                    <field name="work_type_id"/>
+                    <field name="contractor_id"/>
+                    <field name="product_id"/>
+                    <field name="accumulated_quantity"/>
+                    <field name="last_updated"/>
+                </tree>
+            </field>
+        </record>
+
+        <record id="contractor_quantity_tracker_form_view" model="ir.ui.view">
+            <field name="name">contractor.quantity.tracker.form</field>
+            <field name="model">contractor.quantity.tracker</field>
+            <field name="arch" type="xml">
+                <form string="Quantity Tracker">
+                    <sheet>
+                        <group>
+                            <group>
+                                <field name="project_id"/>
+                                <field name="work_type_id"/>
+                                <field name="contractor_id"/>
+                            </group>
+                            <group>
+                                <field name="product_id"/>
+                                <field name="accumulated_quantity"/>
+                                <field name="last_updated"/>
+                            </group>
+                        </group>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+        <!-- Contract Quantity Action -->
+        <record id="contract_quantity_action" model="ir.actions.act_window">
+            <field name="name">Contract Quantities</field>
+            <field name="res_model">contract.quantity</field>
+            <field name="view_mode">tree,form</field>
+            <field name="help" type="html">
+                <p class="o_view_nocontent_smiling_face">
+                    Click to create a new contract quantity.
+                </p>
+            </field>
+        </record>
+
+        <!-- Quantity Tracker Action -->
+        <record id="contractor_quantity_tracker_action" model="ir.actions.act_window">
+            <field name="name">Quantity Tracker</field>
+            <field name="res_model">contractor.quantity.tracker</field>
+            <field name="view_mode">tree,form</field>
+            <field name="help" type="html">
+                <p class="o_view_nocontent_smiling_face">
+                    Quantity tracking records.
+                </p>
+            </field>
+        </record>
+
+        <!-- Project Config Views -->
+        <record id="project_config_tree_view" model="ir.ui.view">
+            <field name="name">project.config.tree</field>
+            <field name="model">project.config</field>
+            <field name="arch" type="xml">
+                <tree string="Projects">
+                    <field name="code"/>
+                    <field name="name"/>
+                    <field name="description"/>
+                    <field name="active"/>
+                </tree>
+            </field>
+        </record>
+
+        <record id="project_config_form_view" model="ir.ui.view">
+            <field name="name">project.config.form</field>
+            <field name="model">project.config</field>
+            <field name="arch" type="xml">
+                <form string="Project">
+                    <sheet>
+                        <group>
+                            <group>
+                                <field name="code"/>
+                                <field name="name"/>
+                            </group>
+                            <group>
+                                <field name="active"/>
+                            </group>
+                        </group>
+                        <group>
+                            <field name="description"/>
+                        </group>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+        <!-- Project Config Action -->
+        <record id="project_config_action" model="ir.actions.act_window">
+            <field name="name">Projects</field>
+            <field name="res_model">project.config</field>
+            <field name="view_mode">tree,form</field>
+            <field name="help" type="html">
+                <p class="o_view_nocontent_smiling_face">
+                    Click to create a new project.
+                </p>
+            </field>
+        </record>
+
+        <!-- Work Type Config Views -->
+        <record id="work_type_config_tree_view" model="ir.ui.view">
+            <field name="name">work.type.config.tree</field>
+            <field name="model">work.type.config</field>
+            <field name="arch" type="xml">
+                <tree string="Work Types">
+                    <field name="code"/>
+                    <field name="name"/>
+                    <field name="description"/>
+                    <field name="active"/>
+                </tree>
+            </field>
+        </record>
+
+        <record id="work_type_config_form_view" model="ir.ui.view">
+            <field name="name">work.type.config.form</field>
+            <field name="model">work.type.config</field>
+            <field name="arch" type="xml">
+                <form string="Work Type">
+                    <sheet>
+                        <group>
+                            <group>
+                                <field name="code"/>
+                                <field name="name"/>
+                            </group>
+                            <group>
+                                <field name="active"/>
+                            </group>
+                        </group>
+                        <group>
+                            <field name="description"/>
+                        </group>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+        <!-- Work Type Config Action -->
+        <record id="work_type_config_action" model="ir.actions.act_window">
+            <field name="name">Work Types</field>
+            <field name="res_model">work.type.config</field>
+            <field name="view_mode">tree,form</field>
+            <field name="help" type="html">
+                <p class="o_view_nocontent_smiling_face">
+                    Click to create a new work type.
+                </p>
+            </field>
+        </record>
+
+        <!-- Contractor Product Views -->
+        <record id="contractor_product_tree_view" model="ir.ui.view">
+            <field name="name">contractor.product.tree</field>
+            <field name="model">contractor.product</field>
+            <field name="arch" type="xml">
+                <tree string="Products">
+                    <field name="code"/>
+                    <field name="name"/>
+                    <field name="work_type_id"/>
+                    <field name="unit"/>
+                    <field name="account_type"/>
+                    <field name="active"/>
+                </tree>
+            </field>
+        </record>
+
+        <record id="contractor_product_form_view" model="ir.ui.view">
+            <field name="name">contractor.product.form</field>
+            <field name="model">contractor.product</field>
+            <field name="arch" type="xml">
+                <form string="Product">
+                    <sheet>
+                        <group>
+                            <group>
+                                <field name="code"/>
+                                <field name="name"/>
+                                <field name="work_type_id"/>
+                                <field name="unit"/>
+                            </group>
+                            <group>
+                                <field name="account_type"/>
+                                <field name="active"/>
+                            </group>
+                        </group>
+                        <group>
+                            <field name="description"/>
+                        </group>
+                        <group string="Account Configuration">
+                            <group>
+                                <field name="in_account_id"/>
+                            </group>
+                            <group>
+                                <field name="out_account_id"/>
+                            </group>
+                        </group>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+        <!-- Contractor Product Action -->
+        <record id="contractor_product_action" model="ir.actions.act_window">
+            <field name="name">Products</field>
+            <field name="res_model">contractor.product</field>
+            <field name="view_mode">tree,form</field>
+            <field name="help" type="html">
+                <p class="o_view_nocontent_smiling_face">
+                    Click to create a new product.
+                </p>
+            </field>
+        </record>
+
+        <!-- Contractor Statement Action with Search View -->
+        <record id="contractor_statement_action" model="ir.actions.act_window">
+            <field name="name">Contractor Statements</field>
+            <field name="res_model">contractor.statement</field>
+            <field name="view_mode">tree,form</field>
+            <field name="search_view_id" ref="contractor_statement_search_view"/>
+            <field name="context">{'search_default_group_by_project': 1}</field>
+            <field name="help" type="html">
+                <p class="o_view_nocontent_smiling_face">
+                    Click to create a new contractor statement.
+                </p>
+            </field>
+        </record>
+
+        <!-- Tree View for Retention Config -->
+        <record id="retention_config_tree_view" model="ir.ui.view">
+            <field name="name">retention.config.tree</field>
+            <field name="model">retention.config</field>
+            <field name="arch" type="xml">
+                <tree string="Retention Configurations">
+                    <field name="project_id"/>
+                    <field name="work_type_id"/>
+                    <field name="retention_percentage"/>
+                    <field name="is_default"/>
+                    <field name="active"/>
+                </tree>
+            </field>
+        </record>
+
+        <!-- Form View for Retention Config -->
+        <record id="retention_config_form_view" model="ir.ui.view">
+            <field name="name">retention.config.form</field>
+            <field name="model">retention.config</field>
+            <field name="arch" type="xml">
+                <form string="Retention Configuration">
+                    <sheet>
+                        <group>
+                            <group>
+                                <field name="project_id"/>
+                                <field name="work_type_id"/>
+                            </group>
+                            <group>
+                                <field name="retention_percentage"/>
+                                <field name="is_default"/>
+                                <field name="active"/>
+                            </group>
+                        </group>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+        <!-- Retention Config Action -->
+        <record id="retention_config_action" model="ir.actions.act_window">
+            <field name="name">Retention Configurations</field>
+            <field name="res_model">retention.config</field>
+            <field name="view_mode">tree,form</field>
+            <field name="help" type="html">
+                <p class="o_view_nocontent_smiling_face">
+                    Click to create a new retention configuration.
+                </p>
+            </field>
+        </record>
+
+        <!-- Main Menu -->
+        <menuitem id="contractor_statement_main_menu" name="Contractor Statements" sequence="10"/>
+
+        <!-- Configuration Menu -->
+        <menuitem id="contractor_statement_config_menu" name="Configuration" parent="contractor_statement_main_menu" sequence="90"/>
+
+        <!-- Sub Menus -->
+        <menuitem id="contractor_statement_menu" name="Contractor Statements" parent="contractor_statement_main_menu" action="contractor_statement_action" sequence="10"/>
+        
+        <menuitem id="project_config_menu" name="Projects" parent="contractor_statement_config_menu" action="project_config_action" sequence="10"/>
+        
+        <menuitem id="work_type_config_menu" name="Work Types" parent="contractor_statement_config_menu" action="work_type_config_action" sequence="20"/>
+        
+        <menuitem id="contractor_product_menu" name="Products" parent="contractor_statement_config_menu" action="contractor_product_action" sequence="30"/>
+        
+        <menuitem id="contract_quantity_menu" name="Contract Quantities" parent="contractor_statement_config_menu" action="contract_quantity_action" sequence="40"/>
+
+        <menuitem id="menu_retention_config_root" name="Retention Configurations" parent="contractor_statement_config_menu" action="retention_config_action" sequence="50"/>
+
+        <menuitem id="menu_quantity_tracker" name="Quantity Tracker" parent="contractor_statement_config_menu" action="contractor_quantity_tracker_action" sequence="60"/>
+
+        <!-- Tree View for Deductions Configuration -->
+        <record id="view_deductions_config_tree" model="ir.ui.view">
+            <field name="name">deductions.config.tree</field>
+            <field name="model">deductions.config</field>
+            <field name="arch" type="xml">
+                <tree string="Deductions Configuration">
+                    <field name="name"/>
+                    <field name="project_id"/>
+                    <field name="work_type_id"/>
+                    <field name="is_default"/>
+                    <field name="active"/>
+                    <field name="company_id"/>
+                </tree>
+            </field>
+        </record>
+
+        <!-- Form View for Deductions Configuration -->
+        <record id="view_deductions_config_form" model="ir.ui.view">
+            <field name="name">deductions.config.form</field>
+            <field name="model">deductions.config</field>
+            <field name="arch" type="xml">
+                <form string="Deductions Configuration">
+                    <sheet>
+                        <div class="o_button_box" name="button_box">
+                            <button name="toggle_active" type="object"
+                                    class="o_stat_button" icon="fa fa-archive">
+                                <field name="active" widget="boolean_button"
+                                       options='{"terminology": "archive"}'/>
+                            </button>
+                        </div>
+                        
+                        <div class="o_title">
+                            <label for="name"/>
+                            <h1>
+                                <field name="name" placeholder="Configuration Name"/>
+                            </h1>
+                        </div>
+                        
+                        <group>
+                            <group name="basic_info" string="Basic Information">
+                                <field name="company_id"/>
+                                <field name="is_default"/>
+                            </group>
+                            
+                            <group name="scope" string="Scope">
+                                <field name="project_id" placeholder="Leave empty for general configuration"/>
+                                <field name="work_type_id" placeholder="Leave empty for general configuration"/>
+                            </group>
+                        </group>
+                        
+                        <group string="Deduction Accounts">
+                            <group name="deduction_accounts_left">
+                                <field name="advance_payment_account_id" 
+                                       domain="[('company_id', '=', company_id)]"/>
+                                <field name="retention_account_id" 
+                                       domain="[('company_id', '=', company_id)]"/>
+                            </group>
+                            
+                            <group name="deduction_accounts_right">
+                                <field name="other_deductions_account_id" 
+                                       domain="[('company_id', '=', company_id)]"/>
+                            </group>
+                        </group>
+                        
+
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+        <!-- Search View for Deductions Configuration -->
+        <record id="view_deductions_config_search" model="ir.ui.view">
+            <field name="name">deductions.config.search</field>
+            <field name="model">deductions.config</field>
+            <field name="arch" type="xml">
+                <search string="Deductions Configuration">
+                    <field name="name"/>
+                    <field name="project_id"/>
+                    <field name="work_type_id"/>
+                    <field name="company_id"/>
+                    
+                    <filter name="active" string="Active" domain="[('active', '=', True)]"/>
+                    <filter name="inactive" string="Inactive" domain="[('active', '=', False)]"/>
+                    <filter name="default" string="Default" domain="[('is_default', '=', True)]"/>
+                    
+                    <separator/>
+                    
+                    <group expand="0" string="Group By">
+                        <filter name="group_by_project" string="Project" context="{'group_by': 'project_id'}"/>
+                        <filter name="group_by_work_type" string="Work Type" context="{'group_by': 'work_type_id'}"/>
+                        <filter name="group_by_company" string="Company" context="{'group_by': 'company_id'}"/>
+                    </group>
+                </search>
+            </field>
+        </record>
+
+        <!-- Action for Deductions Configuration -->
+        <record id="action_deductions_config" model="ir.actions.act_window">
+            <field name="name">Deductions Configuration</field>
+            <field name="type">ir.actions.act_window</field>
+            <field name="res_model">deductions.config</field>
+            <field name="view_mode">tree,form</field>
+            <field name="search_view_id" ref="view_deductions_config_search"/>
+            <field name="help" type="html">
+                <p class="o_view_nocontent_smiling_face">
+                    Create your first deductions configuration!
+                </p>
+                <p>
+                    Configure the accounts used for different types of deductions in contractor statements.
+                    You can create specific configurations for projects and work types, or set up a default configuration.
+                </p>
+            </field>
+        </record>
+
+        <!-- Enhanced Contractor Statement Form View -->
+        <record id="view_contractor_statement_form_enhanced" model="ir.ui.view">
+            <field name="name">contractor.statement.form.enhanced</field>
+            <field name="model">contractor.statement</field>
+            <field name="inherit_id" ref="contractor_statement_form_view"/>
+            <field name="arch" type="xml">
+                
+                <!-- Add deduction accounts fields after financial fields -->
+                <xpath expr="//field[@name='other_deductions']" position="after">
+                    <separator string="Deduction Accounts (Auto-configured)"/>
+                    <group>
+                        <group name="deduction_accounts_left">
+                            <field name="advance_payment_account_id" readonly="1" 
+                                   invisible="advance_payment_deduction == 0"/>
+                            <field name="retention_account_id" readonly="1" 
+                                   invisible="retention == 0"/>
+                        </group>
+                        <group name="deduction_accounts_right">
+                            <field name="other_deductions_account_id" readonly="1" 
+                                   invisible="other_deductions == 0"/>
+                        </group>
+                    </group>
+                </xpath>
+                
+            </field>
+        </record>
+
+        <!-- Menu Item for Deductions Configuration -->
+        <menuitem id="menu_deductions_config"
+                  name="Deductions Configuration"
+                  parent="contractor_statement_config_menu"
+                  action="action_deductions_config"
+                  sequence="55"/>
+        <record id="view_contractor_statement_payment_fields" model="ir.ui.view">
+            <field name="name">contractor.statement.payment.fields</field>
+            <field name="model">contractor.statement</field>
+            <field name="inherit_id" ref="contractor_statement_form_view"/>
+            <field name="arch" type="xml">
+                <!-- إضافة حقول طريقة الدفع بعد journal_id -->
+                <xpath expr="//field[@name='journal_id']" position="after">
+                    <field name="payment_method_id" readonly="state != 'approved'" required="state == 'approved'"/>
+                    <field name="payment_notes" readonly="state != 'approved'"/>
+                </xpath>
+                
+                <!-- إضافة مجموعة معلومات الدفع في صفحة الملخص المالي -->
+                <xpath expr="//page[2]//group[2]" position="after">
+                    <group string="Payment Information" invisible="state not in ('approved', 'paid')">
+                        <field name="payment_method_id" readonly="state == 'paid'" required="state == 'approved'"/>
+                        <field name="payment_notes" readonly="state == 'paid'"/>
+                        <field name="payment_id" readonly="1" invisible="payment_id == False"/>
+                        <field name="paid_by" readonly="1" invisible="paid_by == False"/>
+                        <field name="paid_date" readonly="1" invisible="paid_date == False"/>
+                    </group>
+                </xpath>
+            </field>
+        </record>
+    </data>
+</odoo>
